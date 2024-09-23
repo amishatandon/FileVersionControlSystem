@@ -51,10 +51,12 @@ This is a simple File Version Control System implemented in Java. It allows user
   ## Contributing
   If you wish to contribute to this project, please fork the repository and submit a pull request.
 
-<img width="524" alt="VERSIONCONTROLSYSTEM" src="https://github.com/user-attachments/assets/0d6fa0ec-7a82-4f8d-aa01-cbe6810f4030">
 
 
-  
+<img width="911" alt="1" src="https://github.com/user-attachments/assets/b631fd66-1051-430e-ae8d-68c66361772a">
 
+<img width="682" alt="2" src="https://github.com/user-attachments/assets/1bb086c9-0268-4a3a-a773-a01c4b6f922d">
 
+<img width="755" alt="3" src="https://github.com/user-attachments/assets/5335ad16-e83d-4fd2-aa82-03fba103282e">
 
+<img width="523" alt="4" src="https://github.com/user-attachments/assets/b1875628-f39d-45af-abca-2c5c3b702304">
