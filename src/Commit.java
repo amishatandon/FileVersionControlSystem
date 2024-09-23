@@ -1,7 +1,9 @@
+import java.io.Serializable;
 import java.util.Date;
 import java.util.HashMap;
 
-public class Commit {
+public class Commit implements Serializable {
+    private static final long serialVersionUID = 1L; // Recommended for Serializable classes
     private String commitId;
     private String message;
     private Date timestamp;
@@ -40,4 +42,3 @@ public class Commit {
         }
     }
 }
-

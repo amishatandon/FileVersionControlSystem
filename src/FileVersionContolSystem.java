@@ -7,7 +7,7 @@ public class FileVersionContolSystem {
         String command;
 
         while (true) {
-            System.out.println("\nCommands: add, commit, log, checkout, status, exit");
+            System.out.println("\nCommands: add, remove, commit, log, checkout, status, diff, exit");
             System.out.print("Enter command: ");
             command = scanner.nextLine();
 
@@ -18,6 +18,12 @@ public class FileVersionContolSystem {
                     System.out.print("Enter file content: ");
                     String content = scanner.nextLine();
                     vc.addFile(fileName, content);
+                    break;
+
+                case "remove":
+                    System.out.print("Enter file name to remove: ");
+                    String removeFileName = scanner.nextLine();
+                    vc.removeFile(removeFileName);
                     break;
 
                 case "commit":
@@ -38,6 +44,14 @@ public class FileVersionContolSystem {
 
                 case "status":
                     vc.status();
+                    break;
+
+                case "diff":
+                    System.out.print("Enter first commit ID: ");
+                    String commitId1 = scanner.nextLine();
+                    System.out.print("Enter second commit ID: ");
+                    String commitId2 = scanner.nextLine();
+                    vc.diff(commitId1, commitId2);
                     break;
 
                 case "exit":
