@@ -37,9 +37,11 @@ Combines changes from different branches and detects conflicts when the same fil
 Conflicts are handled using markers:
 
 <<<<<<< HEAD
+
 current changes
 
 incoming changes
+
 >>>>>>> branch
 
 ## 🛠️ Technologies Used
