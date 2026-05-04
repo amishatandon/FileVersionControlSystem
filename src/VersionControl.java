@@ -2,172 +2,276 @@ import java.io.*;
 import java.util.*;
 
 public class VersionControl implements Serializable {
-    private LinkedList<Commit> commits; // List of commits
-    private HashMap<String, String> files; // Current working files
-    private HashMap<String, String> stagedFiles; // Staging area for files to be committed
-    private static final String FILE_NAME = "version_control_data.ser"; // For file persistence
+
+    private Map<String, LinkedList<Commit>> branches;
+    private String currentBranch;
+    private String headCommitId;
+
+    private HashMap<String, String> workingFiles;
+    private HashMap<String, String> stagedFiles;
+
+    private static final String FILE_NAME = "vc_data.ser";
 
     public VersionControl() {
-        this.commits = new LinkedList<>();
-        this.files = new HashMap<>();
-        this.stagedFiles = new HashMap<>();
-        loadData(); // Load persisted data if available
+        loadData();
     }
 
-    // Add a file or modify existing, stage it for commit
-    public void addFile(String fileName, String content) {
+    // ADD (Git-like: ask content here)
+    public void addFile(String fileName) {
+        Scanner sc = new Scanner(System.in);
+        System.out.print("Enter content: ");
+        String content = sc.nextLine();
+
+        workingFiles.put(fileName, content);
         stagedFiles.put(fileName, content);
-        System.out.println("File " + fileName + " added/modified and staged for commit.");
+
+        System.out.println("Staged: " + fileName);
     }
 
-    // Remove file from current state and stage it for deletion
+    // REMOVE
     public void removeFile(String fileName) {
-        if (files.containsKey(fileName)) {
-            stagedFiles.put(fileName, null); // Mark file as deleted in the next commit
-            System.out.println("File " + fileName + " marked for deletion.");
+        if (workingFiles.containsKey(fileName)) {
+            workingFiles.remove(fileName);
+            stagedFiles.put(fileName, null);
+            System.out.println("Marked for deletion: " + fileName);
         } else {
-            System.out.println("File " + fileName + " does not exist.");
+            System.out.println("File not found.");
         }
     }
 
-    // Commit the staged files
+    // COMMIT
     public void commit(String message) {
         if (stagedFiles.isEmpty()) {
             System.out.println("No changes to commit.");
             return;
         }
 
-        // Apply staged changes to current files
-        for (String fileName : stagedFiles.keySet()) {
-            String content = stagedFiles.get(fileName);
-            if (content == null) {
-                files.remove(fileName); // Delete file if marked null
-            } else {
-                files.put(fileName, content); // Update or add file
-            }
-        }
+        String id = UUID.randomUUID().toString();
+        Commit commit = new Commit(id, message, workingFiles);
 
-        String commitId = UUID.randomUUID().toString();
-        Commit newCommit = new Commit(commitId, message, files);
-        commits.add(newCommit);
-        stagedFiles.clear(); // Clear the staging area after commit
-        System.out.println("Committed with ID: " + commitId);
+        branches.get(currentBranch).add(commit);
+        headCommitId = id;
 
-        saveData(); // Save the updated commit history to disk
+        stagedFiles.clear();
+        saveData();
+
+        System.out.println("Committed: " + id);
     }
 
-    // Log all commits
+    // LOG
     public void log() {
-        if (commits.isEmpty()) {
-            System.out.println("No commits found.");
+        LinkedList<Commit> list = branches.get(currentBranch);
+
+        if (list.isEmpty()) {
+            System.out.println("No commits.");
             return;
         }
-        System.out.println("Commit History:");
-        for (Commit commit : commits) {
-            System.out.println("-------------------");
-            commit.printCommit();
+
+        for (Commit c : list) {
+            System.out.println("----------------");
+            c.printCommit();
         }
     }
 
-    // Checkout to a specific commit
-    public void checkout(String commitId) {
-        for (Commit commit : commits) {
-            if (commit.getCommitId().equals(commitId)) {
-                files = new HashMap<>(commit.getFileVersions());
-                stagedFiles.clear(); // Clear any staged changes after checkout
-                System.out.println("Checked out to commit ID: " + commitId);
-                saveData(); // Save the updated file state after checkout
-                return;
-            }
+    // CHECKOUT
+    public void checkout(String id) {
+        Commit c = findCommitById(id);
+        if (c == null) {
+            System.out.println("Commit not found.");
+            return;
         }
-        System.out.println("Commit ID not found.");
+
+        workingFiles = new HashMap<>(c.getFileVersions());
+        stagedFiles.clear();
+        headCommitId = id;
+
+        System.out.println("Checked out: " + id);
     }
 
-    // Show the current working files and staged changes
+    // STATUS
     public void status() {
-        System.out.println("Current Files:");
-        for (String file : files.keySet()) {
-            System.out.println(" - " + file + ": " + files.get(file));
+        System.out.println("Branch: " + currentBranch);
+
+        System.out.println("\nWorking Files:");
+        workingFiles.forEach((k, v) -> System.out.println(" - " + k + ": " + v));
+
+        System.out.println("\nStaged Files:");
+        if (stagedFiles.isEmpty()) {
+            System.out.println("None");
+        } else {
+            stagedFiles.forEach((k, v) ->
+                    System.out.println(" - " + k + (v == null ? " (Deleted)" : ""))
+            );
+        }
+    }
+
+    // DIFF
+    public void diff(String id1, String id2) {
+        Commit c1 = findCommitById(id1);
+        Commit c2 = findCommitById(id2);
+
+        if (c1 == null || c2 == null) {
+            System.out.println("Invalid commit IDs.");
+            return;
         }
 
-        if (!stagedFiles.isEmpty()) {
-            System.out.println("\nStaged Changes:");
-            for (String file : stagedFiles.keySet()) {
-                String content = stagedFiles.get(file);
-                if (content == null) {
-                    System.out.println(" - " + file + " (Deleted)");
-                } else {
-                    System.out.println(" - " + file + " (Modified/Added): " + content);
+        for (String file : c1.getFileVersions().keySet()) {
+            String f1 = c1.getFileVersions().get(file);
+            String f2 = c2.getFileVersions().get(file);
+
+            if (f2 == null) {
+                System.out.println(file + " deleted.");
+                continue;
+            }
+
+            if (!f1.equals(f2)) {
+                System.out.println("\nChanges in " + file);
+
+                String[] l1 = f1.split("\n");
+                String[] l2 = f2.split("\n");
+
+                int max = Math.max(l1.length, l2.length);
+
+                for (int i = 0; i < max; i++) {
+                    String s1 = i < l1.length ? l1[i] : "";
+                    String s2 = i < l2.length ? l2[i] : "";
+
+                    if (!s1.equals(s2)) {
+                        System.out.println("- " + s1);
+                        System.out.println("+ " + s2);
+                    }
                 }
             }
-        } else {
-            System.out.println("\nNo staged changes.");
         }
     }
 
-    // Show differences between two commits
-    public void diff(String commitId1, String commitId2) {
-        Commit commit1 = findCommitById(commitId1);
-        Commit commit2 = findCommitById(commitId2);
+    // BRANCH
+    public void createBranch(String name) {
+        branches.put(name, new LinkedList<>(branches.get(currentBranch)));
+        System.out.println("Branch created: " + name);
+    }
 
-        if (commit1 == null || commit2 == null) {
-            System.out.println("One or both commit IDs not found.");
+    public void switchBranch(String name) {
+        if (!branches.containsKey(name)) {
+            System.out.println("Branch not found.");
             return;
         }
 
-        System.out.println("Diff between " + commitId1 + " and " + commitId2 + ":");
-        HashMap<String, String> files1 = commit1.getFileVersions();
-        HashMap<String, String> files2 = commit2.getFileVersions();
+        currentBranch = name;
+        LinkedList<Commit> list = branches.get(name);
 
-        for (String file : files1.keySet()) {
-            if (!files2.containsKey(file)) {
-                System.out.println("File " + file + " was deleted in commit " + commitId2);
-            } else if (!files1.get(file).equals(files2.get(file))) {
-                System.out.println("File " + file + " was modified:");
-                System.out.println("  Commit " + commitId1 + ": " + files1.get(file));
-                System.out.println("  Commit " + commitId2 + ": " + files2.get(file));
-            }
+        if (!list.isEmpty()) {
+            Commit latest = list.getLast();
+            workingFiles = new HashMap<>(latest.getFileVersions());
+            headCommitId = latest.getCommitId();
         }
 
-        for (String file : files2.keySet()) {
-            if (!files1.containsKey(file)) {
-                System.out.println("File " + file + " was added in commit " + commitId2);
-            }
-        }
+        System.out.println("Switched to: " + name);
     }
 
-    // Helper method to find commit by ID
-    private Commit findCommitById(String commitId) {
-        for (Commit commit : commits) {
-            if (commit.getCommitId().equals(commitId)) {
-                return commit;
+    // RESET
+    public void reset(String id) {
+        Commit c = findCommitById(id);
+        if (c == null) {
+            System.out.println("Commit not found.");
+            return;
+        }
+
+        workingFiles = new HashMap<>(c.getFileVersions());
+        stagedFiles.clear();
+        headCommitId = id;
+
+        LinkedList<Commit> list = branches.get(currentBranch);
+        while (!list.isEmpty() && !list.getLast().getCommitId().equals(id)) {
+            list.removeLast();
+        }
+
+        System.out.println("Reset to: " + id);
+    }
+
+    // MERGE
+    public void merge(String sourceBranch) {
+        if (!branches.containsKey(sourceBranch)) {
+            System.out.println("Branch not found.");
+            return;
+        }
+
+        LinkedList<Commit> source = branches.get(sourceBranch);
+        LinkedList<Commit> target = branches.get(currentBranch);
+
+        if (source.isEmpty()) {
+            System.out.println("Nothing to merge.");
+            return;
+        }
+
+        HashMap<String, String> merged = new HashMap<>(workingFiles);
+
+        Commit sourceLatest = source.getLast();
+
+        for (String file : sourceLatest.getFileVersions().keySet()) {
+            String s = sourceLatest.getFileVersions().get(file);
+            String t = merged.get(file);
+
+            if (t == null) {
+                merged.put(file, s);
+            } else if (!t.equals(s)) {
+                String conflict = "<<<<<<< HEAD\n" + t +
+                        "\n=======\n" + s +
+                        "\n>>>>>>> " + sourceBranch;
+
+                merged.put(file, conflict);
+                System.out.println("Conflict in: " + file);
             }
+        }
+
+        String id = UUID.randomUUID().toString();
+        Commit mergeCommit = new Commit(id, "Merge " + sourceBranch, merged);
+
+        target.add(mergeCommit);
+        workingFiles = merged;
+        headCommitId = id;
+
+        saveData();
+        System.out.println("Merged successfully.");
+    }
+
+    private Commit findCommitById(String id) {
+        for (Commit c : branches.get(currentBranch)) {
+            if (c.getCommitId().equals(id)) return c;
         }
         return null;
     }
 
-    // Save version control data to file
     private void saveData() {
         try (ObjectOutputStream out = new ObjectOutputStream(new FileOutputStream(FILE_NAME))) {
-            out.writeObject(this);
-            System.out.println("Version control data saved.");
-        } catch (IOException e) {
-            System.out.println("Error saving data: " + e.getMessage());
+            out.writeObject(branches);
+            out.writeObject(currentBranch);
+            out.writeObject(headCommitId);
+        } catch (Exception e) {
+            System.out.println("Save error.");
         }
     }
 
-    // Load version control data from file
     private void loadData() {
         try (ObjectInputStream in = new ObjectInputStream(new FileInputStream(FILE_NAME))) {
-            VersionControl loadedData = (VersionControl) in.readObject();
-            this.commits = loadedData.commits;
-            this.files = loadedData.files;
-            this.stagedFiles = loadedData.stagedFiles;
-            System.out.println("Version control data loaded.");
-        } catch (FileNotFoundException e) {
-            System.out.println("No saved data found, starting fresh.");
-        } catch (IOException | ClassNotFoundException e) {
-            System.out.println("Error loading data: " + e.getMessage());
+            branches = (Map<String, LinkedList<Commit>>) in.readObject();
+            currentBranch = (String) in.readObject();
+            headCommitId = (String) in.readObject();
+
+            LinkedList<Commit> list = branches.get(currentBranch);
+
+            workingFiles = list.isEmpty()
+                    ? new HashMap<>()
+                    : new HashMap<>(list.getLast().getFileVersions());
+
+            stagedFiles = new HashMap<>();
+
+        } catch (Exception e) {
+            branches = new HashMap<>();
+            currentBranch = "main";
+            branches.put("main", new LinkedList<>());
+            workingFiles = new HashMap<>();
+            stagedFiles = new HashMap<>();
         }
     }
 }

@@ -3,29 +3,20 @@ import java.util.Date;
 import java.util.HashMap;
 
 public class Commit implements Serializable {
-    private static final long serialVersionUID = 1L; // Recommended for Serializable classes
     private String commitId;
     private String message;
     private Date timestamp;
-    private HashMap<String, String> fileVersions; // File name -> File content
+    private HashMap<String, String> fileVersions;
 
-    public Commit(String commitId, String message, HashMap<String, String> fileVersions) {
-        this.commitId = commitId;
-        this.message = message;
+    public Commit(String id, String msg, HashMap<String, String> files) {
+        this.commitId = id;
+        this.message = msg;
         this.timestamp = new Date();
-        this.fileVersions = new HashMap<>(fileVersions); // Snapshot of current files
+        this.fileVersions = new HashMap<>(files);
     }
 
     public String getCommitId() {
         return commitId;
-    }
-
-    public String getMessage() {
-        return message;
-    }
-
-    public Date getTimestamp() {
-        return timestamp;
     }
 
     public HashMap<String, String> getFileVersions() {
@@ -33,12 +24,11 @@ public class Commit implements Serializable {
     }
 
     public void printCommit() {
-        System.out.println("Commit ID: " + commitId);
-        System.out.println("Message: " + message);
-        System.out.println("Timestamp: " + timestamp);
-        System.out.println("Files:");
-        for (String file : fileVersions.keySet()) {
-            System.out.println(" - " + file + ": " + fileVersions.get(file));
-        }
+        System.out.println("ID: " + commitId);
+        System.out.println("Msg: " + message);
+        System.out.println("Time: " + timestamp);
+
+        fileVersions.forEach((k, v) ->
+                System.out.println(" - " + k + ": " + v));
     }
 }
