@@ -36,13 +36,13 @@ Combines changes from different branches and detects conflicts when the same fil
 ### 6. Conflict Resolution
 Conflicts are handled using markers:
 
+```text
 <<<<<<< HEAD
-
 current changes
-
+=======
 incoming changes
-
->>>>>>> branch
+>>>>>>> feature
+```
 
 ## 🛠️ Technologies Used
 
